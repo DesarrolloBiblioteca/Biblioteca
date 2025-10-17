@@ -1,0 +1,98 @@
+name: Discord Notifications
+
+on:
+  push:
+    branches: [ main, develop, feature/**, bugfix/**, hotfix/** ]
+  pull_request:
+    types: [opened, closed, reopened, ready_for_review]
+  issues:
+    types: [opened, closed, reopened]
+
+jobs:
+  notify-commit:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notificar commits a Discord
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [{
+              "title": "🚀 Nuevo Commit en '"${{ github.repository }}"'",
+              "description": "**Rama:** `'"${{ github.ref_name }}"'`\n**Autor:** '"${{ github.actor }}"'\n**Mensaje:** '"${{ github.event.head_commit.message }}"'",
+              "color": 3447003,
+              "url": "'"${{ github.event.head_commit.url }}"'",
+              "footer": {
+                "text": "GitHub Actions"
+              },
+              "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+            }]
+          }' \
+          ${{ secrets.DISCORD_WEBHOOK_COMMITS }}
+
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notificar PR a Discord
+        run: |
+          COLOR=15844367
+          if [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+            COLOR=5763719
+            ACTION_TEXT="✅ merged"
+          elif [ "${{ github.event.action }}" = "closed" ]; then
+            COLOR=15158332
+            ACTION_TEXT="❌ closed"
+          elif [ "${{ github.event.action }}" = "opened" ]; then
+            COLOR=15844367
+            ACTION_TEXT="📬 opened"
+          else
+            ACTION_TEXT="${{ github.event.action }}"
+          fi
+          
+          curl -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [{
+              "title": "Pull Request '"$ACTION_TEXT"'",
+              "description": "**'"${{ github.event.pull_request.title }}"'**\n\n**Autor:** '"${{ github.event.pull_request.user.login }}"'\n**Rama:** `'"${{ github.event.pull_request.head.ref }}"'` → `'"${{ github.event.pull_request.base.ref }}"'`",
+              "color": '"$COLOR"',
+              "url": "'"${{ github.event.pull_request.html_url }}"'",
+              "footer": {
+                "text": "GitHub Actions"
+              },
+              "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+            }]
+          }' \
+          ${{ secrets.DISCORD_WEBHOOK_PRS }}
+
+  notify-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notificar Issue a Discord
+        run: |
+          COLOR=16776960
+          if [ "${{ github.event.action }}" = "opened" ]; then
+            ACTION_TEXT="🐛 abierto"
+            COLOR=16776960
+          elif [ "${{ github.event.action }}" = "closed" ]; then
+            ACTION_TEXT="✅ cerrado"
+            COLOR=5763719
+          else
+            ACTION_TEXT="${{ github.event.action }}"
+          fi
+          
+          curl -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [{
+              "title": "Issue '"$ACTION_TEXT"'",
+              "description": "**'"${{ github.event.issue.title }}"'**\n\n**Autor:** '"${{ github.event.issue.user.login }}"'",
+              "color": '"$COLOR"',
+              "url": "'"${{ github.event.issue.html_url }}"'",
+              "footer": {
+                "text": "GitHub Actions"
+              },
+              "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+            }]
+          }' \
+          ${{ secrets.DISCORD_WEBHOOK_ISSUES }}
